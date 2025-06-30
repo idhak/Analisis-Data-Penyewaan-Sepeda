@@ -1,4 +1,4 @@
-# Proyek Analisis Data Penyewaan Sepeda
+# Proyek Analisis Data Penyewaan Sepeda🚲📝🔍✨
 
 Proyek ini bertujuan untuk menganalisis data penyewaan sepeda pada tahun 2011 hingga 2012 berdasarkan kondisi lingkungan, cuaca, dan musim.
 
@@ -26,7 +26,7 @@ Pastikan Anda menginstal:
 2. Buka terminal atau prompt perintah dan instal Streamlit bersama dengan library lain yang diperlukan menggunakan perintah berikut: 
 
 ```bash
-pip install streamlit pandas numpy scipy matplotlib seaborn
+pip install -r requirements.txt
 ```
 3. Pastikan Anda tidak memindahkan berkas CSV karena berkas ini berfungsi sebagai sumber data. Simpan di folder yang sama dengan dashboard.py Anda.
 4. Luncurkan VSCode dan arahkan ke terminal.
