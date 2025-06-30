@@ -3,14 +3,24 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import streamlit as st
 import plotly.express as px 
+import os
 
 # Mengatur style seaborn
 sns.set(style='dark')
 
+# Debuggiing
+st.write("Current working directory:", os.getcwd())
+st.write("Files in 'dashboard/':", os.listdir("dashboard"))
+
 # Fungsi dan Persiapan Data
 def load_data():
     """Memuat dan membersihkan data dari file CSV."""
-    df = pd.read_csv("dashboard/main_data.csv")
+    csv_path = "dashboard/main_data.csv"
+    if not os.path.exists(csv_path):
+        st.error(f"FATAL: File tidak ditemukan di path: {csv_path}")
+        st.stop() # Hentikan eksekusi jika file tidak ada
+
+    df = pd.read_csv(csv_path)
     df['dteday'] = pd.to_datetime(df['dteday'])
     
     # Membuat kolom label yang mudah dibaca untuk filter 
@@ -42,6 +52,14 @@ def categorize_hour(hr):
 
 # Memuat data
 data = load_data()
+
+# Debugging
+st.write("Data successfully loaded. Info:")
+st.info(f"Jumlah baris: {len(data)}, Rentang tanggal: {data['dteday'].min()} hingga {data['dteday'].max()}")
+if data.empty:
+    st.warning("Peringatan: DataFrame kosong setelah dimuat.")
+    st.stop()
+
 data['time_of_day'] = data['hr'].apply(categorize_hour)
 
 # Sidebar untuk Filter Interaktif 
@@ -49,12 +67,22 @@ st.sidebar.image("dashboard/sepeda.jpg", use_column_width=True)
 st.sidebar.title("🚲 Filter Data")
 
 # Filter Tanggal
-start_date, end_date = st.sidebar.date_input(
+date_range = st.sidebar.date_input(
     "Pilih Rentang Tanggal",
     min_value=data['dteday'].min().date(),
     max_value=data['dteday'].max().date(),
     value=[data['dteday'].min().date(), data['dteday'].max().date()]
 )
+
+# Periksa apakah date_range adalah tuple/list dengan 2 elemen
+if isinstance(date_range, (list, tuple)) and len(date_range) == 2:
+    start_date, end_date = date_range
+else:
+    # Jika tidak, gunakan nilai default sebagai fallback untuk mencegah crash
+    start_date = data['dteday'].min().date()
+    end_date = data['dteday'].max().date()
+    # Menampilkan pesan peringatan
+    st.sidebar.warning("Rentang tanggal tidak valid, menggunakan rentang default.")
 
 # Filter Musim dan Cuaca
 season_filter = st.sidebar.multiselect(
