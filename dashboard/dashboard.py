@@ -10,7 +10,7 @@ sns.set(style='dark')
 # Fungsi dan Persiapan Data
 def load_data():
     """Memuat dan membersihkan data dari file CSV."""
-    df = pd.read_csv("main_data.csv")
+    df = pd.read_csv("dashboard/main_data.csv")
     df['dteday'] = pd.to_datetime(df['dteday'])
     
     # Membuat kolom label yang mudah dibaca untuk filter 
@@ -45,7 +45,7 @@ data = load_data()
 data['time_of_day'] = data['hr'].apply(categorize_hour)
 
 # Sidebar untuk Filter Interaktif 
-st.sidebar.image("sepeda.jpg", use_column_width=True) 
+st.sidebar.image("dashboard/sepeda.jpg", use_column_width=True) 
 st.sidebar.title("🚲 Filter Data")
 
 # Filter Tanggal
