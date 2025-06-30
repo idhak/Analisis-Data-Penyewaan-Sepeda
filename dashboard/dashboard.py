@@ -2,15 +2,35 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 import streamlit as st
+import plotly.express as px 
 
-sns.set(style='dark', palette='deep')
+# Mengatur style seaborn
+sns.set(style='dark')
 
+# Fungsi dan Persiapan Data
 def load_data():
-    df = pd.read_csv("dashboard/main_data.csv")
+    """Memuat dan membersihkan data dari file CSV."""
+    df = pd.read_csv("main_data.csv")
     df['dteday'] = pd.to_datetime(df['dteday'])
+    
+    # Membuat kolom label yang mudah dibaca untuk filter 
+    df['season_label'] = df['season'].map({
+        'Spring': '1: Musim Semi', 
+        'Summer': '2: Musim Panas', 
+        'Fall': '3: Musim Gugur', 
+        'Winter': '4: Musim Dingin'
+    })
+    
+    df['weathersit_label'] = df['weathersit'].map({
+        'Clear/Few clouds/Partly cloudy': '1: Cerah/Berawan',
+        'Mist + Cloudy/Mist + Broken clouds/Mist + Few clouds/Mist': '2: Berkabut/Mendung',
+        'Light Snow/Light Rain + Thunderstorm + Scattered clouds': '3: Hujan/Salju Ringan',
+        'Heavy Rain + Ice Pallets + Thunderstorm + Mist/Snow + Fog': '4: Cuaca Buruk'
+    })
     return df
 
 def categorize_hour(hr):
+    """Mengelompokkan jam ke dalam kategori waktu (Pagi, Siang, Sore, Malam)."""
     if 1 <= hr < 12: 
         return "Pagi"
     elif 12 <= hr < 16:
@@ -20,81 +40,160 @@ def categorize_hour(hr):
     else:
         return "Malam" 
 
-# Load dataset
+# Memuat data
 data = load_data()
 data['time_of_day'] = data['hr'].apply(categorize_hour)
 
-# Sidebar for date selection
-st.sidebar.image("dashboard/sepeda.jpg", use_column_width=True)
-st.sidebar.title("Filter Data")
-start_date = st.sidebar.date_input("Mulai Tanggal", min_value=data['dteday'].min(), max_value=data['dteday'].max(), value=data['dteday'].min())
-end_date = st.sidebar.date_input("Akhir Tanggal", min_value=data['dteday'].min(), max_value=data['dteday'].max(), value=data['dteday'].max())
+# Sidebar untuk Filter Interaktif 
+st.sidebar.image("sepeda.jpg", use_column_width=True) 
+st.sidebar.title("🚲 Filter Data")
 
-data_filtered = data[(data['dteday'] >= pd.Timestamp(start_date)) & (data['dteday'] <= pd.Timestamp(end_date))]
+# Filter Tanggal
+start_date, end_date = st.sidebar.date_input(
+    "Pilih Rentang Tanggal",
+    min_value=data['dteday'].min().date(),
+    max_value=data['dteday'].max().date(),
+    value=[data['dteday'].min().date(), data['dteday'].max().date()]
+)
 
-st.title("Analisis Penyewaan Sepeda 🚴")
-st.subheader("Ringkasan Data")
+# Filter Musim dan Cuaca
+season_filter = st.sidebar.multiselect(
+    "Pilih Musim",
+    options=data['season_label'].sort_values().unique(),
+    default=data['season_label'].unique()
+)
 
-col1, col2, col3 = st.columns(3)
-col1.metric("Penyewa Kasual", data_filtered['casual'].sum())
-col2.metric("Penyewa Terdaftar", data_filtered['registered'].sum())
-col3.metric("Total Penyewaan", data_filtered['cnt'].sum())
+weather_filter = st.sidebar.multiselect(
+    "Pilih Kondisi Cuaca",
+    options=data['weathersit_label'].sort_values().unique(),
+    default=data['weathersit_label'].unique()
+)
 
-# Penyewaan Berdasarkan Musim
-st.subheader("Distribusi Penyewaan Berdasarkan Musim")
-fig, ax = plt.subplots(figsize=(10,5))
-sns.boxplot(x="season", y="cnt", data=data_filtered, palette="flare", ax=ax)
-ax.set_xticklabels(['Spring', 'Summer', 'Fall', 'Winter'])
-st.pyplot(fig)
+# Filter Tipe Pengguna untuk ditampilkan di grafik
+user_type_map = {
+    'Total Penyewa': 'cnt',
+    'Penyewa Kasual': 'casual',
+    'Penyewa Terdaftar': 'registered'
+}
+selected_user_type_label = st.sidebar.radio(
+    "Tampilkan Data Untuk:",
+    user_type_map.keys()
+)
+selected_metric = user_type_map[selected_user_type_label]
 
-# Penyewaan Berdasarkan Kondisi Cuaca
-st.subheader("Distribusi Penyewaan Berdasarkan Kondisi Cuaca")
-fig, ax = plt.subplots(figsize=(15,10))
-sns.boxplot(x="weathersit", y="cnt", data=data_filtered, palette="viridis", ax=ax)
-ax.set_xticklabels(["1", "2", "3", "4"])
-legend_labels = [
-    "1: Clear/Few clouds/Partly cloudy",
-    "2: Mist + Cloudy/Mist + Broken clouds/Mist + Few clouds/Mist",
-    "3: Light Snow/Light Rain + Thunderstorm/Scattered clouds/Light Rain + Scattered clouds",
-    "4: Heavy Rain + Ice Pallets + Thunderstorm + Mist/Snow + Fog"
+# Menerapkan semua filter ke data
+data_filtered = data[
+    (data['dteday'].dt.date >= start_date) & 
+    (data['dteday'].dt.date <= end_date) &
+    (data['season_label'].isin(season_filter)) &
+    (data['weathersit_label'].isin(weather_filter))
 ]
-ax.legend(handles=ax.patches[:4], labels=legend_labels, title="Kategori Cuaca", loc="upper right", fontsize=7)
-st.pyplot(fig)
 
-# Korelasi Faktor Lingkungan dengan Penyewaan
-st.subheader("Korelasi antara Faktor Lingkungan dan Penyewaan Sepeda")
-fig, ax = plt.subplots(figsize=(10,5))
-sns.heatmap(data_filtered[['temp', 'hum', 'windspeed', 'cnt']].corr(), annot=True, cmap="coolwarm", linewidths=0.5, ax=ax)
-st.pyplot(fig)
+# Layout Utama Dashboard
+st.title("Dashboard Analisis Penyewaan Sepeda 🚴")
+st.markdown("Dasbor ini menyajikan analisis interaktif terhadap data penyewaan sepeda.")
 
-# Penyewaan Berdasarkan Hari Kerja (Working Day) vs Akhir Pekan (Non-Working Day) vs Hari Libur (Holiday)
-st.subheader("Penyewaan Sepeda: Hari Kerja vs Akhir Pekan vs Hari Libur")
-fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(24, 8))
+# Ringkasan Data Utama
+st.subheader("Ringkasan Data")
+col1, col2, col3 = st.columns(3)
+col1.metric("Penyewa Kasual", f"{data_filtered['casual'].sum():,}")
+col2.metric("Penyewa Terdaftar", f"{data_filtered['registered'].sum():,}")
+col3.metric("Total Penyewaan", f"{data_filtered['cnt'].sum():,}")
 
-sns.barplot(x="workingday", y="cnt", data=data_filtered, palette="tab20b", ax=axes[0], estimator=sum)
-axes[0].set_xticklabels(["Non-Working Day", "Working Day"])
-axes[0].set_title("Penyewaan Berdasarkan Hari Kerja (Working Day)")
+# --- Jawaban Pertanyaan Bisnis dengan Visualisasi Interaktif (Plotly) ---
 
-sns.barplot(x="holiday", y="cnt", data=data_filtered, palette="tab20b", ax=axes[1], estimator=sum)
-axes[1].set_xticklabels(["Non-Holiday", "Holiday"])
-axes[1].set_title("Penyewaan Berdasarkan Hari Libur (Holiday)")
+# Pertanyaan 1: Pengaruh Musim dan Cuaca (REVISI: Bar chart dengan Plotly)
+st.subheader(f"Rata-Rata {selected_user_type_label} Berdasarkan Musim & Cuaca")
 
-st.pyplot(fig)
+col1, col2 = st.columns(2)
+
+with col1:
+    season_data = data_filtered.groupby('season_label')[selected_metric].mean().reset_index()
+    fig_season = px.bar(
+        season_data,
+        x='season_label',
+        y=selected_metric,
+        title="Berdasarkan Musim",
+        labels={'season_label': 'Musim', selected_metric: f'Rata-Rata {selected_user_type_label}'},
+        color_discrete_sequence=['#4c78a8'] 
+    )
+    st.plotly_chart(fig_season, use_container_width=True)
+
+with col2:
+    weather_data = data_filtered.groupby('weathersit_label')[selected_metric].mean().reset_index()
+    fig_weather = px.bar(
+        weather_data,
+        x='weathersit_label',
+        y=selected_metric,
+        title="Berdasarkan Kondisi Cuaca",
+        labels={'weathersit_label': 'Kondisi Cuaca', selected_metric: f'Rata-Rata {selected_user_type_label}'},
+        color_discrete_sequence=['#54a24b'] 
+    )
+    st.plotly_chart(fig_weather, use_container_width=True)
+
+# Pertanyaan 2: Pola pada Hari Kerja, Akhir Pekan, dan Hari Libur 
+st.subheader(f"Total {selected_user_type_label}: Hari Kerja vs. Hari Libur")
+
+col1, col2 = st.columns(2)
+
+with col1:
+    workingday_data = data_filtered.groupby('workingday')[selected_metric].sum().reset_index()
+    
+    fig_workday = px.bar(
+        workingday_data,
+        x='workingday', 
+        y=selected_metric,
+        title="Berdasarkan Hari Kerja",
+        labels={'workingday': 'Tipe Hari', selected_metric: f'Total {selected_user_type_label}'},
+        color_discrete_sequence=['#e45756'],
+        category_orders={"workingday": ["Working Day", "Non-Working Day"]}
+    )
+    st.plotly_chart(fig_workday, use_container_width=True)
+
+with col2:
+    holiday_data = data_filtered.groupby('holiday')[selected_metric].sum().reset_index()
+
+    
+    fig_holiday = px.bar(
+        holiday_data,
+        x='holiday',  
+        y=selected_metric,
+        title="Berdasarkan Hari Libur Nasional",
+        labels={'holiday': 'Tipe Hari', selected_metric: f'Total {selected_user_type_label}'},
+        color_discrete_sequence=['#f28e2b'],
+        # Mengatur urutan bar
+        category_orders={"holiday": ["Non-Holiday", "Holiday"]}
+    )
+    st.plotly_chart(fig_holiday, use_container_width=True)
+
+# Pertanyaan 3: Tren Waktu dalam Sehari 
+st.subheader(f"Tren {selected_user_type_label} Berdasarkan Waktu")
+
+# 1. Rata-rata per Kategori Waktu
+time_of_day_data = data_filtered.groupby("time_of_day")[selected_metric].mean().reindex(["Pagi", "Siang", "Sore", "Malam"]).reset_index()
+fig_time_of_day = px.bar(
+    time_of_day_data,
+    x='time_of_day',
+    y=selected_metric,
+    title="Rata-Rata Penyewaan per Kategori Waktu",
+    labels={'time_of_day': 'Waktu dalam Sehari', selected_metric: 'Rata-Rata Jumlah Sewa'},
+    color_discrete_sequence=['#76b7b2']
+)
+st.plotly_chart(fig_time_of_day, use_container_width=True)
+
+# 2. Tren Harian Interaktif
+st.markdown("### Tren Distribusi Penyewa per Jam Berdasarkan Hari")
+hourly_trend_data = data_filtered.groupby(['hr', 'weekday'])[selected_metric].mean().reset_index()
+fig_hourly = px.line(
+    hourly_trend_data,
+    x='hr',
+    y=selected_metric,
+    color='weekday',
+    title="Tren Interaktif per Jam",
+    labels={'hr': 'Jam', selected_metric: 'Rata-Rata Jumlah Sewa', 'weekday': 'Hari'},
+    markers=True
+)
+st.plotly_chart(fig_hourly, use_container_width=True)
 
 
-# Tren Penyewaan Berdasarkan Waktu dalam Sehari
-st.subheader("Rata-rata Penyewaan Sepeda Berdasarkan Waktu dalam Sehari")
-time_of_day_counts = data_filtered.groupby("time_of_day")["cnt"].mean().reindex(["Pagi", "Siang", "Sore", "Malam"])
-fig, ax = plt.subplots(figsize=(10,5))
-sns.barplot(x=time_of_day_counts.index, y=time_of_day_counts.values, palette="deep", ax=ax)
-st.pyplot(fig)
-
-# Tren Penyewaan Sepeda Harian
-st.subheader("Tren Penyewaan Sepeda Harian")
-fig, ax = plt.subplots(figsize=(20,8))
-sns.pointplot(x="hr", y="cnt", data=data_filtered, hue='weekday', ax=ax)
-ax.set_title("Tren Distribusi Penyewa Sepeda Berdasarkan Hari", fontsize=18)
-legend = ax.legend(title="Kategori Hari", fontsize=12, title_fontsize=14, loc='upper left', bbox_to_anchor=(1, 1))
-st.pyplot(fig)
-
-st.caption("© 2025 Dashboard Penyewaan Sepeda")
+st.caption("© 2025 Sepedashboard. All rights reserved.")
