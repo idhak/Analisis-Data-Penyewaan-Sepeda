@@ -3,14 +3,18 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import streamlit as st
 import plotly.express as px 
+import os
 
 # Mengatur style seaborn
 sns.set(style='dark')
 
 # Fungsi dan Persiapan Data
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 def load_data():
     """Memuat dan membersihkan data dari file CSV."""
-    df = pd.read_csv("dashboard/main_data.csv")
+    csv_path = os.path.join(BASE_DIR, 'main_data.csv')
+    df = pd.read_csv(csv_path)
+    
     df['dteday'] = pd.to_datetime(df['dteday'])
     
     # Membuat kolom label yang mudah dibaca untuk filter 
@@ -45,7 +49,8 @@ data = load_data()
 data['time_of_day'] = data['hr'].apply(categorize_hour)
 
 # Sidebar untuk Filter Interaktif 
-st.sidebar.image("dashboard/sepeda.jpg", use_column_width=True) 
+image_path = os.path.join(BASE_DIR, 'sepeda.jpg')
+st.sidebar.image(image_path, use_column_width=True) 
 st.sidebar.title("🚲 Filter Data")
 
 # Filter Tanggal
