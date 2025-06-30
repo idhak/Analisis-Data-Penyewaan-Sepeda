@@ -6,7 +6,7 @@ import streamlit as st
 sns.set(style='dark', palette='deep')
 
 def load_data():
-    df = pd.read_csv("main_data.csv")
+    df = pd.read_csv("dashboard/main_data.csv")
     df['dteday'] = pd.to_datetime(df['dteday'])
     return df
 
@@ -25,7 +25,7 @@ data = load_data()
 data['time_of_day'] = data['hr'].apply(categorize_hour)
 
 # Sidebar for date selection
-st.sidebar.image("sepeda.jpg", use_column_width=True) 
+st.sidebar.image("dashboard/sepeda.jpg", use_column_width=True)
 st.sidebar.title("Filter Data")
 start_date = st.sidebar.date_input("Mulai Tanggal", min_value=data['dteday'].min(), max_value=data['dteday'].max(), value=data['dteday'].min())
 end_date = st.sidebar.date_input("Akhir Tanggal", min_value=data['dteday'].min(), max_value=data['dteday'].max(), value=data['dteday'].max())
