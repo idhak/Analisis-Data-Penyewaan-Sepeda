@@ -1,34 +1,30 @@
 import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn as sns
 import streamlit as st
-import plotly.express as px 
+import plotly.express as px
 import os
 
-# Mengatur style seaborn
+# Mengatur style seaborn (opsional, karena Plotly dominan)
 sns.set(style='dark')
 
 # Menentukan path direktori saat ini
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-# Fungsi dan Persiapan Data
 @st.cache_data
 def load_data():
     """Memuat dan membersihkan data dari file CSV."""
     csv_path = os.path.join(BASE_DIR, 'main_data.csv')
-    df = pd.read_csv(csv_path)
+    try:
+        df = pd.read_csv(csv_path)
+    except FileNotFoundError:
+        st.error(f"File data tidak ditemukan. Pastikan file 'main_data.csv' berada di direktori `{BASE_DIR}`.")
+        return None
     
     df['dteday'] = pd.to_datetime(df['dteday'])
-    
-    # PERBAIKAN: Pastikan kolom 'hr' adalah tipe numerik
     df['hr'] = pd.to_numeric(df['hr'], errors='coerce')
     
-    # Membuat kolom label yang mudah dibaca untuk filter 
     df['season_label'] = df['season'].map({
-        'Spring': '1: Musim Semi', 
-        'Summer': '2: Musim Panas', 
-        'Fall': '3: Musim Gugur', 
-        'Winter': '4: Musim Dingin'
+        'Spring': '1: Musim Semi', 'Summer': '2: Musim Panas',
+        'Fall': '3: Musim Gugur', 'Winter': '4: Musim Dingin'
     })
     
     df['weathersit_label'] = df['weathersit'].map({
@@ -40,19 +36,22 @@ def load_data():
     return df
 
 def categorize_hour(hr):
-    """Mengelompokkan jam ke dalam kategori waktu."""
     if 1 <= hr < 12: return "Pagi"
     elif 12 <= hr < 16: return "Siang"
     elif 16 <= hr <= 18: return "Sore"
-    else: return "Malam" 
+    else: return "Malam"
 
 # Memuat data
 data = load_data()
+
+if data is None:
+    st.stop()
+
 data['time_of_day'] = data['hr'].apply(categorize_hour)
 
-# Sidebar
+# --- Sidebar ---
 image_path = os.path.join(BASE_DIR, 'sepeda.jpg')
-st.sidebar.image(image_path, use_column_width=True) 
+st.sidebar.image(image_path, use_column_width=True)
 st.sidebar.title("🚲 Filter Data")
 
 # Filter Tanggal
@@ -63,17 +62,28 @@ start_date, end_date = st.sidebar.date_input(
     value=[data['dteday'].min().date(), data['dteday'].max().date()]
 )
 
-# Filter lain
+# --- PERBAIKAN DI SINI ---
+# Filter Musim dan Cuaca dengan penanganan nilai NaN
+unique_seasons = data['season_label'].unique()
+options_season = sorted([s for s in unique_seasons if pd.notna(s)])
+
 season_filter = st.sidebar.multiselect(
     "Pilih Musim",
-    options=sorted(data['season_label'].unique()),
-    default=sorted(data['season_label'].unique())
+    options=options_season,
+    default=options_season
 )
+
+unique_weather = data['weathersit_label'].unique()
+options_weather = sorted([w for w in unique_weather if pd.notna(w)])
+
 weather_filter = st.sidebar.multiselect(
     "Pilih Kondisi Cuaca",
-    options=sorted(data['weathersit_label'].unique()),
-    default=sorted(data['weathersit_label'].unique())
+    options=options_weather,
+    default=options_weather
 )
+# --- AKHIR PERBAIKAN ---
+
+# Filter Tipe Pengguna
 user_type_map = {'Total Penyewa': 'cnt', 'Penyewa Kasual': 'casual', 'Penyewa Terdaftar': 'registered'}
 selected_user_type_label = st.sidebar.radio("Tampilkan Data Untuk:", user_type_map.keys())
 selected_metric = user_type_map[selected_user_type_label]
@@ -90,17 +100,19 @@ if data_filtered.empty:
     st.warning("Tidak ada data yang tersedia untuk filter yang dipilih. Silakan ubah pilihan filter Anda.")
     st.stop()
 
-# Layout Utama
+# --- Layout Utama ---
 st.title("Dashboard Analisis Penyewaan Sepeda 🚴")
 st.markdown("Dasbor ini menyajikan analisis interaktif terhadap data penyewaan sepeda.")
 
+# Ringkasan Data
 st.subheader("Ringkasan Data")
 col1, col2, col3 = st.columns(3)
 col1.metric("Penyewa Kasual", f"{data_filtered['casual'].sum():,}")
 col2.metric("Penyewa Terdaftar", f"{data_filtered['registered'].sum():,}")
 col3.metric("Total Penyewaan", f"{data_filtered['cnt'].sum():,}")
 
-# Visualisasi
+# --- Visualisasi ---
+# (Sisa kode visualisasi Anda dari sini ke bawah tetap sama dan seharusnya sudah benar)
 st.subheader(f"Rata-Rata {selected_user_type_label} Berdasarkan Musim & Cuaca")
 col1, col2 = st.columns(2)
 with col1:
